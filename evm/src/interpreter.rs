@@ -1242,7 +1242,7 @@ mod tests {
                 "00",
             ),
         ];
-        for (val, th, except) in data {
+        for (val, th, expected) in data {
             let mut it = default_interpreter();;
             it.stack.push_n(&vec![
                 U256::from(val),
@@ -1250,7 +1250,7 @@ mod tests {
             ]);
             it.params.contract.code_data = vec![opcodes::OpCode::BYTE as u8];
             it.run().unwrap();
-            assert_eq!(it.stack.pop(), U256::from(except));
+            assert_eq!(it.stack.pop(), U256::from(expected));
         }
     }
 
@@ -1313,12 +1313,12 @@ mod tests {
                 "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
             ),
         ];
-        for (x, y, except) in data {
+        for (x, y, expected) in data {
             let mut it = default_interpreter();;
             it.stack.push_n(&vec![U256::from(x), U256::from(y)]);
             it.params.contract.code_data = vec![opcodes::OpCode::SHL as u8];
             it.run().unwrap();
-            assert_eq!(it.stack.pop(), U256::from(except));
+            assert_eq!(it.stack.pop(), U256::from(expected));
         }
     }
 
@@ -1381,12 +1381,12 @@ mod tests {
                 "0000000000000000000000000000000000000000000000000000000000000000",
             ),
         ];
-        for (x, y, except) in data {
+        for (x, y, expected) in data {
             let mut it = default_interpreter();;
             it.stack.push_n(&vec![U256::from(x), U256::from(y)]);
             it.params.contract.code_data = vec![opcodes::OpCode::SHR as u8];
             it.run().unwrap();
-            assert_eq!(it.stack.pop(), U256::from(except));
+            assert_eq!(it.stack.pop(), U256::from(expected));
         }
     }
 
@@ -1474,12 +1474,12 @@ mod tests {
                 "0000000000000000000000000000000000000000000000000000000000000000",
             ),
         ];
-        for (x, y, except) in data {
+        for (x, y, expected) in data {
             let mut it = default_interpreter();;
             it.stack.push_n(&vec![U256::from(x), U256::from(y)]);
             it.params.contract.code_data = vec![opcodes::OpCode::SAR as u8];
             it.run().unwrap();
-            assert_eq!(it.stack.pop(), U256::from(except));
+            assert_eq!(it.stack.pop(), U256::from(expected));
         }
     }
 
@@ -1547,12 +1547,12 @@ mod tests {
                 "0000000000000000000000000000000000000000000000000000000000000000",
             ),
         ];
-        for (x, y, except) in data {
+        for (x, y, expected) in data {
             let mut it = default_interpreter();;
             it.stack.push_n(&vec![U256::from(x), U256::from(y)]);
             it.params.contract.code_data = vec![opcodes::OpCode::SGT as u8];
             it.run().unwrap();
-            assert_eq!(it.stack.pop(), U256::from(except));
+            assert_eq!(it.stack.pop(), U256::from(expected));
         }
     }
 
@@ -1620,12 +1620,12 @@ mod tests {
                 "0000000000000000000000000000000000000000000000000000000000000001",
             ),
         ];
-        for (x, y, except) in data {
+        for (x, y, expected) in data {
             let mut it = default_interpreter();;
             it.stack.push_n(&vec![U256::from(x), U256::from(y)]);
             it.params.contract.code_data = vec![opcodes::OpCode::SLT as u8];
             it.run().unwrap();
-            assert_eq!(it.stack.pop(), U256::from(except));
+            assert_eq!(it.stack.pop(), U256::from(expected));
         }
     }
 
