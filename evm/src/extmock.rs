@@ -2,8 +2,9 @@ use super::err;
 use super::ext;
 use super::interpreter;
 use super::opcodes;
-use ethereum_types::{Address, H256, U256};
-use keccak_hash;
+use numext_fixed_uint::U256;
+use numext_fixed_hash::{H160, H256};
+use tiny_keccak::Keccak;
 use std::collections::BTreeMap;
 
 #[derive(Clone, Default)]
@@ -16,37 +17,37 @@ pub struct Account {
 
 #[derive(Default)]
 pub struct DataProviderMock {
-    pub db: BTreeMap<Address, Account>,
-    pub db_origin: BTreeMap<Address, Account>,
-    pub refund: BTreeMap<Address, u64>,
+    pub db: BTreeMap<H160, Account>,
+    pub db_origin: BTreeMap<H160, Account>,
+    pub refund: BTreeMap<H160, u64>,
 }
 
 impl ext::DataProvider for DataProviderMock {
-    fn get_balance(&self, address: &Address) -> U256 {
+    fn get_balance(&self, address: &H160) -> U256 {
         self.db.get(address).map_or(U256::zero(), |v| v.balance)
     }
 
-    fn add_refund(&mut self, address: &Address, n: u64) {
+    fn add_refund(&mut self, address: &H160, n: u64) {
         self.refund.entry(*address).and_modify(|v| *v += n).or_insert(n);
     }
 
-    fn sub_refund(&mut self, address: &Address, n: u64) {
+    fn sub_refund(&mut self, address: &H160, n: u64) {
         self.refund.entry(*address).and_modify(|v| *v -= n).or_insert(n);
     }
 
-    fn get_refund(&self, address: &Address) -> u64 {
+    fn get_refund(&self, address: &H160) -> u64 {
         self.refund.get(address).map_or(0, |v| *v)
     }
 
-    fn get_code_size(&self, address: &Address) -> u64 {
+    fn get_code_size(&self, address: &H160) -> u64 {
         self.db.get(address).map_or(0, |v| v.code.len() as u64)
     }
 
-    fn get_code(&self, address: &Address) -> Vec<u8> {
+    fn get_code(&self, address: &H160) -> Vec<u8> {
         self.db.get(address).map_or(vec![], |v| v.code.clone())
     }
 
-    fn get_code_hash(&self, address: &Address) -> H256 {
+    fn get_code_hash(&self, address: &H160) -> H256 {
         self.db
             .get(address)
             .map_or(H256::zero(), |v| self.sha3(v.code.as_slice()))
@@ -56,13 +57,13 @@ impl ext::DataProvider for DataProviderMock {
         H256::zero()
     }
 
-    fn get_storage(&self, address: &Address, key: &H256) -> H256 {
+    fn get_storage(&self, address: &H160, key: &H256) -> H256 {
         self.db
             .get(address)
             .map_or(H256::zero(), |v| v.storage.get(key).map_or(H256::zero(), |&v| v))
     }
 
-    fn set_storage(&mut self, address: &Address, key: H256, value: H256) {
+    fn set_storage(&mut self, address: &H160, key: H256, value: H256) {
         self.db
             .entry(*address)
             .or_insert_with(Account::default)
@@ -70,13 +71,13 @@ impl ext::DataProvider for DataProviderMock {
             .insert(key, value);
     }
 
-    fn get_storage_origin(&self, address: &Address, key: &H256) -> H256 {
+    fn get_storage_origin(&self, address: &H160, key: &H256) -> H256 {
         self.db_origin
             .get(address)
             .map_or(H256::zero(), |v| v.storage.get(key).map_or(H256::zero(), |&v| v))
     }
 
-    fn set_storage_origin(&mut self, address: &Address, key: H256, value: H256) {
+    fn set_storage_origin(&mut self, address: &H160, key: H256, value: H256) {
         self.db_origin
             .entry(*address)
             .or_insert_with(Account::default)
@@ -84,16 +85,16 @@ impl ext::DataProvider for DataProviderMock {
             .insert(key, value);
     }
 
-    fn selfdestruct(&mut self, address: &Address, _: &Address) -> bool {
+    fn selfdestruct(&mut self, address: &H160, _: &H160) -> bool {
         self.db.remove(address);
         true
     }
 
     fn sha3(&self, data: &[u8]) -> H256 {
-        keccak_hash::keccak(data)
+        tiny_keccak::keccak256(data).into()
     }
 
-    fn is_empty(&self, address: &Address) -> bool {
+    fn is_empty(&self, address: &H160) -> bool {
         self.db.get(address).is_none()
     }
 

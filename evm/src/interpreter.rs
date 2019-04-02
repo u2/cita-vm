@@ -4,23 +4,24 @@ use super::ext;
 use super::memory;
 use super::opcodes;
 use super::stack;
-use ethereum_types::{Address, H256, U256, U512};
+use numext_fixed_uint::{U256, U512};
+use numext_fixed_hash::{H160, H256};
 use log::debug;
 use std::cmp;
 
 #[derive(Clone, Debug, Default)]
 pub struct Context {
     pub gas_limit: u64,
-    pub coinbase: Address,
+    pub coinbase: H160,
     pub number: U256,
     pub timestamp: u64,
     pub difficulty: U256,
 }
 
 // Log is the data struct for LOG0...LOG4.
-// The members are "Address: Address, Topics: Vec<H256>, Body: Vec<u8>"
+// The members are "H160: H160, Topics: Vec<H256>, Body: Vec<u8>"
 #[derive(Clone, Debug)]
-pub struct Log(pub Address, pub Vec<H256>, pub Vec<u8>);
+pub struct Log(pub H160, pub Vec<H256>, pub Vec<u8>);
 
 #[derive(Clone, Debug)]
 pub enum InterpreterResult {
@@ -29,7 +30,7 @@ pub enum InterpreterResult {
     // Return data, remain gas
     Revert(Vec<u8>, u64),
     // Return data, remain gas, logs, contract address
-    Create(Vec<u8>, u64, Vec<Log>, Address),
+    Create(Vec<u8>, u64, Vec<Log>, H160),
 }
 
 #[derive(Clone)]
@@ -127,16 +128,16 @@ impl Default for InterpreterConf {
 
 #[derive(Clone, Debug, Default)]
 pub struct Contract {
-    pub code_address: Address,
+    pub code_address: H160,
     pub code_data: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct InterpreterParams {
-    pub origin: Address,   // Who send the transaction
-    pub sender: Address,   // Who send the call
-    pub receiver: Address, // Who receive the transaction or call
-    pub address: Address,  // Which storage used
+    pub origin: H160,   // Who send the transaction
+    pub sender: H160,   // Who send the call
+    pub receiver: H160, // Who receive the transaction or call
+    pub address: H160,  // Which storage used
 
     pub value: U256,
     pub input: Vec<u8>,
@@ -215,7 +216,7 @@ impl Interpreter {
             match op {
                 opcodes::OpCode::EXP => {
                     let expon = self.stack.back(1);
-                    let bytes = ((expon.bits() + 7) / 8) as u64;
+                    let bytes = ((U256::count_bits(expon) + 7) / 8) as u64;
                     let gas = self.cfg.gas_exp + self.cfg.gas_exp_byte * bytes;
                     self.use_gas(gas)?;
                 }
@@ -224,7 +225,7 @@ impl Interpreter {
                     let mem_len = self.stack.back(1);
                     self.mem_gas_work(mem_offset, mem_len)?;
                     self.use_gas(self.cfg.gas_sha3)?;
-                    self.use_gas(common::to_word_size(mem_len.low_u64()) * self.cfg.gas_sha3_word)?;
+                    self.use_gas(common::to_word_size(u64::from(mem_len)) * self.cfg.gas_sha3_word)?;
                 }
                 opcodes::OpCode::BALANCE => {
                     self.use_gas(self.cfg.gas_balance)?;
@@ -233,14 +234,14 @@ impl Interpreter {
                     let mem_offset = self.stack.back(0);
                     let mem_len = self.stack.back(2);
                     self.mem_gas_work(mem_offset, mem_len)?;
-                    let gas = common::to_word_size(mem_len.low_u64()) * self.cfg.gas_copy;
+                    let gas = common::to_word_size(u64::from(mem_len)) * self.cfg.gas_copy;
                     self.use_gas(gas)?;
                 }
                 opcodes::OpCode::CODECOPY => {
                     let mem_offset = self.stack.back(0);
                     let mem_len = self.stack.back(2);
                     self.mem_gas_work(mem_offset, mem_len)?;
-                    let gas = common::to_word_size(mem_len.low_u64()) * self.cfg.gas_copy;
+                    let gas = common::to_word_size(u64::from(mem_len)) * self.cfg.gas_copy;
                     self.use_gas(gas)?;
                 }
                 opcodes::OpCode::EXTCODESIZE => {
@@ -251,7 +252,7 @@ impl Interpreter {
                     let mem_len = self.stack.back(3);
                     self.use_gas(self.cfg.gas_extcode)?;
                     self.mem_gas_work(mem_offset, mem_len)?;
-                    let gas = common::to_word_size(mem_len.low_u64()) * self.cfg.gas_copy;
+                    let gas = common::to_word_size(u64::from(mem_len)) * self.cfg.gas_copy;
                     self.use_gas(gas)?;
                 }
                 opcodes::OpCode::EXTCODEHASH => {
@@ -350,7 +351,7 @@ impl Interpreter {
                     self.mem_gas_work(mem_offset, mem_len)?;
                     let gas = self.cfg.gas_log
                         + self.cfg.gas_log_topic * u64::from(n)
-                        + self.cfg.gas_log_data * mem_len.low_u64();
+                        + self.cfg.gas_log_data * u64::from(mem_len);
                     self.use_gas(gas)?;
                 }
                 opcodes::OpCode::CREATE => {
@@ -412,7 +413,7 @@ impl Interpreter {
                     }
                     self.mem_gas_work(mem_offset, mem_len)?;
                     self.use_gas(self.cfg.gas_create)?;
-                    self.use_gas(common::to_word_size(mem_len.low_u64()) * self.cfg.gas_sha3_word)?;
+                    self.use_gas(common::to_word_size(u64::from(mem_len)) * self.cfg.gas_sha3_word)?;
                     self.gas_tmp = self.gas - self.gas / 64;
                     self.use_gas(self.gas_tmp)?;
                 }
@@ -440,17 +441,17 @@ impl Interpreter {
                 opcodes::OpCode::ADD => {
                     let a = self.stack.pop();
                     let b = self.stack.pop();
-                    self.stack.push(a.overflowing_add(b).0);
+                    self.stack.push(a.overflowing_add(&b).0);
                 }
                 opcodes::OpCode::MUL => {
                     let a = self.stack.pop();
                     let b = self.stack.pop();
-                    self.stack.push(a.overflowing_mul(b).0);
+                    self.stack.push(a.overflowing_mul(&b).0);
                 }
                 opcodes::OpCode::SUB => {
                     let a = self.stack.pop();
                     let b = self.stack.pop();
-                    self.stack.push(a.overflowing_sub(b).0);
+                    self.stack.push(a.overflowing_sub(&b).0);
                 }
                 opcodes::OpCode::DIV => {
                     let a = self.stack.pop();
@@ -492,7 +493,7 @@ impl Interpreter {
                     let c = self.stack.pop();
                     self.stack.push(if !c.is_zero() {
                         let res = U512::from(a);
-                        let res = res.overflowing_add(U512::from(b)).0;
+                        let res = res.overflowing_add(&U512::from(b)).0;
                         let res = res % U512::from(c);
                         U256::from(res)
                     } else {
@@ -505,7 +506,7 @@ impl Interpreter {
                     let c = self.stack.pop();
                     self.stack.push(if !c.is_zero() {
                         let res = U512::from(a);
-                        let res = res.overflowing_mul(U512::from(b)).0;
+                        let res = res.overflowing_mul(&U512::from(b)).0;
                         let res = res % U512::from(c);
                         U256::from(res)
                     } else {
@@ -515,7 +516,7 @@ impl Interpreter {
                 opcodes::OpCode::EXP => {
                     let base = self.stack.pop();
                     let expon = self.stack.pop();
-                    let res = base.overflowing_pow(expon).0;
+                    let res = base.overflowing_pow(&expon).0;
                     self.stack.push(res);
                 }
                 opcodes::OpCode::SIGNEXTEND => {
@@ -523,7 +524,7 @@ impl Interpreter {
                     if bit < U256::from(32) {
                         let number = self.stack.pop();
                         let bit_position = (bit.low_u64() * 8 + 7) as usize;
-                        let bit = number.bit(bit_position);
+                        let bit = number.bit(bit_position).unwrap_or(false);
                         let mask = (U256::one() << bit_position) - U256::one();
                         self.stack.push(if bit { number | !mask } else { number & mask });
                     }
@@ -645,7 +646,7 @@ impl Interpreter {
                     let mem_len = self.stack.pop();
                     let k = self
                         .data_provider
-                        .sha3(self.mem.get(mem_offset.low_u64() as usize, mem_len.low_u64() as usize));
+                        .sha3(self.mem.get(mem_offset.low_u64() as usize, u64::from(mem_len )as usize));
                     self.stack.push(U256::from(k));
                 }
                 opcodes::OpCode::ADDRESS => {
@@ -901,7 +902,7 @@ impl Interpreter {
                         let r = H256::from(self.stack.pop());
                         topics.push(r);
                     }
-                    let data = self.mem.get(mem_offset.low_u64() as usize, mem_len.low_u64() as usize);
+                    let data = self.mem.get(mem_offset.low_u64() as usize, u64::from(mem_len )as usize);
                     self.logs.push(Log(self.params.address, topics, Vec::from(data)));
                 }
                 opcodes::OpCode::CREATE | opcodes::OpCode::CREATE2 => {
@@ -918,7 +919,7 @@ impl Interpreter {
                             _ => panic!("instruction can only be CREATE/CREATE2 checked above"),
                         }
                     });
-                    let data = self.mem.get(mem_offset.low_u64() as usize, mem_len.low_u64() as usize);
+                    let data = self.mem.get(mem_offset.low_u64() as usize, u64::from(mem_len )as usize);
                     if value > self.data_provider.get_balance(&self.params.address) {
                         self.stack.push(U256::zero());
                         self.gas += self.gas_tmp;
@@ -1007,7 +1008,7 @@ impl Interpreter {
                         self.stack.push(U256::zero());
                         continue;
                     }
-                    let data = self.mem.get(mem_offset.low_u64() as usize, mem_len.low_u64() as usize);
+                    let data = self.mem.get(mem_offset.low_u64() as usize, u64::from(mem_len )as usize);
                     let mut params = InterpreterParams::default();
                     params.origin = self.params.origin;
                     params.gas_limit = gas;
@@ -1095,7 +1096,7 @@ impl Interpreter {
                 opcodes::OpCode::RETURN => {
                     let mem_offset = self.stack.pop();
                     let mem_len = self.stack.pop();
-                    let r = self.mem.get(mem_offset.low_u64() as usize, mem_len.low_u64() as usize);
+                    let r = self.mem.get(mem_offset.low_u64() as usize, u64::from(mem_len )as usize);
                     let return_data = Vec::from(r);
                     return Ok(InterpreterResult::Normal(
                         return_data.clone(),
@@ -1106,7 +1107,7 @@ impl Interpreter {
                 opcodes::OpCode::REVERT => {
                     let mem_offset = self.stack.pop();
                     let mem_len = self.stack.pop();
-                    let r = self.mem.get(mem_offset.low_u64() as usize, mem_len.low_u64() as usize);
+                    let r = self.mem.get(mem_offset.low_u64() as usize, u64::from(mem_len )as usize);
                     let return_data = Vec::from(r);
                     return Ok(InterpreterResult::Revert(return_data.clone(), self.gas));
                 }
@@ -1157,13 +1158,13 @@ impl Interpreter {
         if mem_len.is_zero() {
             return Ok(());
         }
-        let (mem_sum, b) = mem_offset.overflowing_add(mem_len);
+        let (mem_sum, b) = mem_offset.overflowing_add(&mem_len);
         // Ethereum's max block gas is 8000000, when mem size > 1024 * 64,
         // about 8000000 gas should be fired. That's means this transaction
         // will never success.
         //
         // But to keep some imagination, 1G is used as the ceil.
-        if b || mem_sum.bits() > 64 || mem_sum.low_u64() > 1024 * 1024 * 1024 {
+        if b || U256::count_bits(mem_sum) > 64 || mem_sum.low_u64() > 1024 * 1024 * 1024 {
             return Err(err::Error::OutOfGas);
         }
         if mem_len != U256::zero() {
@@ -1192,7 +1193,7 @@ impl Interpreter {
     }
 
     fn pre_jump(&self, n: U256) -> Result<(), err::Error> {
-        if n.bits() > 63 {
+        if U256::count_bits(n) > 63 {
             return Err(err::Error::InvalidJumpDestination);
         }
         let n = n.low_u64() as usize;
@@ -1740,7 +1741,7 @@ mod tests {
             it.params.contract.code_data = common::hex_decode(code).unwrap();
             it.run().unwrap();
             assert_eq!(it.gas, it.context.gas_limit - use_gas);
-            assert_eq!(it.data_provider.get_refund(&Address::zero()), refund);
+            assert_eq!(it.data_provider.get_refund(&H160::zero()), refund);
         }
     }
 

@@ -1,31 +1,32 @@
 use super::err;
 use super::interpreter;
 use super::opcodes;
-use ethereum_types::{Address, H256, U256};
+use numext_fixed_uint::U256;
+use numext_fixed_hash::{H160, H256};
 
 pub trait DataProvider {
-    fn get_balance(&self, address: &Address) -> U256;
+    fn get_balance(&self, address: &H160) -> U256;
 
-    fn add_refund(&mut self, address: &Address, n: u64);
-    fn sub_refund(&mut self, address: &Address, n: u64);
-    fn get_refund(&self, address: &Address) -> u64;
+    fn add_refund(&mut self, address: &H160, n: u64);
+    fn sub_refund(&mut self, address: &H160, n: u64);
+    fn get_refund(&self, address: &H160) -> u64;
 
-    fn get_code_size(&self, address: &Address) -> u64;
-    fn get_code(&self, address: &Address) -> Vec<u8>;
-    fn get_code_hash(&self, address: &Address) -> H256;
+    fn get_code_size(&self, address: &H160) -> u64;
+    fn get_code(&self, address: &H160) -> Vec<u8>;
+    fn get_code_hash(&self, address: &H160) -> H256;
 
     fn get_block_hash(&self, number: &U256) -> H256;
 
-    fn get_storage(&self, address: &Address, key: &H256) -> H256;
-    fn set_storage(&mut self, address: &Address, key: H256, value: H256);
-    fn get_storage_origin(&self, address: &Address, key: &H256) -> H256;
-    fn set_storage_origin(&mut self, address: &Address, key: H256, value: H256);
+    fn get_storage(&self, address: &H160, key: &H256) -> H256;
+    fn set_storage(&mut self, address: &H160, key: H256, value: H256);
+    fn get_storage_origin(&self, address: &H160, key: &H256) -> H256;
+    fn set_storage_origin(&mut self, address: &H160, key: H256, value: H256);
 
-    fn selfdestruct(&mut self, address: &Address, refund_address: &Address) -> bool;
+    fn selfdestruct(&mut self, address: &H160, refund_address: &H160) -> bool;
     fn sha3(&self, input: &[u8]) -> H256;
     // is_empty returns whether the given account is empty. Empty
     // is defined according to EIP161 (balance = nonce = code = 0).
-    fn is_empty(&self, address: &Address) -> bool;
+    fn is_empty(&self, address: &H160) -> bool;
 
     // call is a low-level function for
     //   OpCode::CALL

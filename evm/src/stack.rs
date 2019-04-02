@@ -3,7 +3,7 @@ pub struct Stack<T> {
     data: Vec<T>,
 }
 
-impl<T: Clone + Copy> Stack<T> {
+impl<T: Clone> Stack<T> {
     pub fn with_capacity(capacity: usize) -> Self {
         Stack {
             data: Vec::with_capacity(capacity),

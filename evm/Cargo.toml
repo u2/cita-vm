@@ -6,7 +6,8 @@ edition = "2018"
 
 [dependencies]
 env_logger = "0.6.1"
-ethereum-types = "0.4"
+numext-fixed-hash = { git = "https://github.com/cryptape/rust-numext" }
+numext-fixed-uint = { git = "https://github.com/cryptape/rust-numext" }
 hex = "0.3"
-keccak-hash = "0.1"
+tiny-keccak = "1.4.2"
 log = "0.4.0"

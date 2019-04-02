@@ -1,4 +1,6 @@
-use ethereum_types::{Address, H256, U256};
+use numext_fixed_uint::{U256, U160};
+use numext_fixed_hash::{H160, H256};
+use numext_fixed_uint::prelude::UintConvert;
 use std::u64;
 
 /// The size of word in EVM is 32 bytes.
@@ -30,20 +32,23 @@ pub fn get_sign(value: U256) -> (U256, bool) {
 #[inline]
 pub fn set_sign(value: U256, sign: bool) -> U256 {
     if sign {
-        (!U256::zero() ^ value).overflowing_add(U256::one()).0
+        (!U256::zero() ^ value).overflowing_add(&U256::one()).0
     } else {
         value
     }
 }
 
 #[inline]
-pub fn u256_to_address(value: &U256) -> Address {
-    Address::from(H256::from(value))
+pub fn u256_to_address(value: &U256) -> H160 {
+    let (y, _t): (U160, _) = value.convert_into();
+    H160::from(y)
 }
 
 #[inline]
-pub fn address_to_u256(value: Address) -> U256 {
-    U256::from(&*H256::from(value))
+pub fn address_to_u256(value: H160) -> U256 {
+    let y = U160::from(value);
+    let (v, _t): (U256, _) = y.convert_into();
+    v
 }
 
 #[inline]
@@ -82,12 +87,12 @@ pub fn rpad(slice: Vec<u8>, n: usize) -> Vec<u8> {
 /// Copy data from source by start and size.
 #[inline]
 pub fn copy_data(source: &[u8], start: U256, size: U256) -> Vec<u8> {
-    let source_len = U256::from(source.len());
+    let source_len = U256::from(source.len() as u64);
     let s = u256_min(start, source_len);
     let e = u256_min(s + size, source_len);
 
-    let data = &source[s.as_usize()..e.as_usize()];
-    rpad(Vec::from(data), size.as_usize())
+    let data = &source[u64::from(s) as usize..u64::from(e) as usize];
+    rpad(Vec::from(data), u64::from(size) as usize)
 }
 
 #[inline]
